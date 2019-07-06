@@ -1,12 +1,11 @@
-1. Install virtualenv (required for this project)
+# serving-now-backend
+Serving Now Back End Web App
 
-2. Run the following commands to setup the environment for the application
-..1. `.lambda-ordermeal/bin/activate`
-..2. `pip3 install -r requirements.py`
+1. Activate the `infiniteoptions` virtual environment in your terminal. 
+    - Refer to this repository for set up information
+      `https://github.com/infinite-options/serving-now-virtualenv`
 
-3. Further, You will have to configure AWS, run the following command
-`aws configure`
-(please reach out to me to get my aws credentials for the project)
-
-4. Run the application
-`python3 app,py`
+2. Run the backend web app.
+    - `python3 main.py`
+      
+3. Navigate to `localhost:5000/api/v1/kitchens` to verify that the back end is working.
