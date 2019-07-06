@@ -1,0 +1,15 @@
+{
+    "dev": {
+        "app_function": "app.app",
+        "aws_region": "us-west-2",
+        "profile_name": "japs-dev",
+        "project_name": "ordermealbackend",
+        "runtime": "python3.6",
+        "s3_bucket": "zappa-4go7axs3l",
+        "environment_variables": {
+            "MEAL_IMAGES_BUCKET": "ordermealapp",
+            "EMAIL": "infiniteoptions.meals@gmail.com",
+            "PASSWORD": "annApurna"
+        }
+    }
+}
