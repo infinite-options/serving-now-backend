@@ -48,10 +48,7 @@ BUCKET_NAME = os.environ.get('MEAL_IMAGES_BUCKET')
 ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg'])
 
 
-
-# =======HELPER FUNCTIONS FOR UPLOADING AN IMAGE=============
-
-def upload_meal_img(file, bucket, key):
+def helper_upload_meal_img(file, bucket, key):
     if file and allowed_file(file.filename):
         filename = 'https://s3-us-west-2.amazonaws.com/' \
                    + str(bucket) + '/' + str(key)
@@ -81,9 +78,7 @@ def kitchenExists(kitchen_id):
         }
     )
 
-    if kitchen.get('Items') == []:
-        return False
-    return True
+    return not kitchen.get('Items') == []
 
 
 class MealOrders(Resource):
@@ -342,7 +337,7 @@ class Meals(Resource):
 
         try:
             photo_key = 'meals_imgs/{}_{}'.format(str(kitchen_id), str(meal_id))
-            photo_path = upload_meal_img(request.files['photo'], BUCKET_NAME, photo_key)
+            photo_path = helper_upload_meal_img(request.files['photo'], BUCKET_NAME, photo_key)
 
             if photo_path == None:
                 raise BadRequest('Request failed. \
@@ -434,14 +429,6 @@ class OrderReport(Resource):
                     ':x1': {'S': todays_date}
                 }
             )
-
-            # allMeals = []
-            
-            # for order in orders['Items']:
-            #     for meals in order['order_items']['L']:
-            #         meals_info = db.get(TableName='meals',
-            #             Key={'meal_id': meals['M']['meal_id']}
-            #         )
 
             response['result'] = orders['Items']
             response['message'] = 'Request successful'
