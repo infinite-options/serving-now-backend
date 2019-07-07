@@ -304,6 +304,210 @@ class Kitchens(Resource):
             raise BadRequest('Request failed. Please try again later.')
 
 
+class Kitchen(Resource):
+    def get(self, kitchen_id):
+        kitchen = db.scan(TableName='kitchens',
+            FilterExpression='kitchen_id = :val',
+            ExpressionAttributeValues={
+                ':val': {'S': kitchen_id}
+            }
+        )
+        if (kitchen.get('Items') == []):
+            return "Kitchen not found.", 404
+        return kitchen, 200
+
+    def post(self):
+        response = {}
+        data = request.get_json(force=True)
+        created_at = datetime.now(tz=timezone('US/Pacific')).strftime("%Y-%m-%dT%H:%M:%S")
+
+        if data.get('name') == None \
+          or data.get('description') == None \
+          or data.get('email') == None \
+          or data.get('username') == None \
+          or data.get('password') == None \
+          or data.get('first_name') == None \
+          or data.get('last_name') == None \
+          or data.get('address') == None \
+          or data.get('city') == None \
+          or data.get('state') == None \
+          or data.get('zipcode') == None \
+          or data.get('phone_number') == None \
+          or data.get('close_time') == None \
+          or data.get('open_time') == None:
+            raise BadRequest('Request failed. Please provide all \
+                              required information.')
+
+        # scan to check if the kitchen name exists
+        kitchen = db.scan(TableName="kitchens",
+            FilterExpression='#name = :val',
+            ExpressionAttributeNames={
+                '#name': 'name'
+            },
+            ExpressionAttributeValues={
+                ':val': {'S': data['name']}
+            }
+        )
+
+        # raise exception if the kitchen name already exists
+        if kitchen.get('Items') != []:
+            response['message'] = 'This kitchen name is already taken.'
+            return response, 400
+
+        kitchen_id = uuid.uuid4().hex
+
+        try:
+            add_kitchen = db.put_item(TableName='kitchens',
+                Item={'kitchen_id': {'S': kitchen_id},
+                      'created_at': {'S': created_at},
+                      'name': {'S': data['name']},
+                      'description': {'S': data['description']},
+                      'username': {'S': data['username']},
+                      'password': {'S': generate_password_hash(data['password'])},
+                      'first_name': {'S': data['first_name']},
+                      'last_name': {'S': data['last_name']},
+                      'address': {'S': data['address']},
+                      'city': {'S': data['city']},
+                      'state': {'S': data['state']},
+                      'zipcode': {'N': str(data['zipcode'])},
+                      'phone_number': {'S': str(data['phone_number'])},
+                      'open_time': {'S': str(data['open_time'])},
+                      'close_time': {'S': str(data['close_time'])},
+                      'isOpen': {'BOOL': False},
+                      'email': {'S': data['email']}
+                }
+            )
+
+            response['message'] = 'Request successful'
+            response['kitchen_id'] = kitchen_id
+            return response, 200
+        except:
+            raise BadRequest('Request failed. Please try again later.')
+        return
+
+    def put(self, kitchen_id):
+        """ Updates kitchen information.
+        Since the UI infers that a Kitchen is actually three Resources (User, Home, Kitchen),
+        this method allows updates for specific Resources through the use of a 'type' key,
+        which indicates which Resource is being updated.
+        """
+        if not kitchenExists(kitchen_id):
+            return BadRequest('Kitchen could not be found.')
+
+        response = {}
+        data = request.get_json(force=True)
+        if ('type' not in data):
+            raise BadRequest('Missing update type.')
+        if ('payload' not in data):
+            raise BadRequest('Missing payload.')
+
+        REGISTRATION_FIELD_KEYS = [
+          'username',
+          'password'
+        ]
+        PERSONAL_FIELD_KEYS = [
+          'first_name',
+          'last_name',
+          'address',
+          'city',
+          'state',
+          'zipcode',
+          'phone_number',
+          'email'
+        ]
+        KITCHEN_FIELD_KEYS = [
+          'name',
+          'description',
+          'open_time',
+          'close_time',
+          'delivery_option',
+          'container_option',
+          'cancellation_option'
+        ]
+        def findMissingFieldKey(fields, payload):
+            """Finds the first missing field in payload.
+            Returns first field in fields that is not in payload, or None if all fields are in payload.
+            """
+            for i in range(len(fields)):
+                if fields[i] not in payload:
+                    return fields[i]
+            return None
+        payload = data['payload']
+        if (data['type'] == 'registration'):
+            missing_field = findMissingFieldKey(REGISTRATION_FIELD_KEYS, payload)
+            if (missing_field == None):
+                try:
+                    db.update_item(TableName='kitchens',
+                        Key={'kitchen_id': {'S': str(kitchen_id)}},
+                        UpdateExpression='SET username = :un, passsword = :pw',
+                        ExpressionAttributeValues={
+                            ':un': {'S': payload['username']},
+                            ':pw': {'S': generate_password_hash(payload['password'])}
+                        }
+                    )
+                    response['message'] = 'Update successful'
+                    return response, 200
+                except:
+                    raise BadRequest('Request failed. Please try again later.')
+            else:
+                return BadRequest('Missing field: ' + missing_field)
+        elif (data['type'] == 'personal'):
+            missing_field = findMissingFieldKey(PERSONAL_FIELD_KEYS, payload)
+            if (missing_field == None):
+                try:
+                    db.update_item(TableName='kitchens',
+                        Key={'kitchen_id': {'S': str(kitchen_id)}},
+                        UpdateExpression='SET first_name = :fn, last_name = :ln, address = :a, city = :c, #state = :s, zipcode = :z, phone_number = :pn, email = :e',
+                        ExpressionAttributeNames={
+                          '#state': 'state'
+                        },
+                        ExpressionAttributeValues={
+                            ':fn': {'S': payload['first_name']},
+                            ':ln': {'S': payload['last_name']},
+                            ':a': {'S': payload['address']},
+                            ':c': {'S': payload['city']},
+                            ':s': {'S': payload['state']},
+                            ':z': {'N': str(payload['zipcode'])},
+                            ':pn': {'S': str(payload['phone_number'])},
+                            ':e': {'S': payload['email']}
+                        }
+                    )
+                    response['message'] = 'Update successful'
+                    return response, 200
+                except:
+                    raise BadRequest('Request failed. Please try again later.')
+            else:
+                return BadRequest('Missing field: ' + missing_field)
+        elif (data['type'] == 'kitchen'):
+            missing_field = findMissingFieldKey(KITCHEN_FIELD_KEYS, payload)
+            if (missing_field == None):
+                try:
+                    db.update_item(TableName='kitchens',
+                        Key={'kitchen_id': {'S': str(kitchen_id)}},
+                        UpdateExpression='SET #name = :n, description = :d, open_time = :ot, close_time = :ct, delivery_option = :do, container_option = :co, cancellation_option = :cao',
+                        ExpressionAttributeNames={
+                            '#name': 'name'
+                        },
+                        ExpressionAttributeValues={
+                            ':n': {'S': payload['name']},
+                            ':d': {'S': payload['description']},
+                            ':ot': {'S': payload['open_time']},
+                            ':ct': {'S': payload['close_time']},
+                            ':do': {'S': payload['delivery_option']},
+                            ':co': {'S': str(payload['container_option'])},
+                            ':cao': {'S': str(payload['cancellation_option'])}
+                        }
+                    )
+                    response['message'] = 'Update successful'
+                    return response, 200
+                except:
+                    raise BadRequest('Request failed. Please try again later.')
+            else:
+                return BadRequest('Missing field: ' + missing_field)
+        else:
+            return BadRequest('\'type\' must have one of the following values: \'registration\', \'personal\', \'kitchen\'')
+
+
 class Meals(Resource):
     def post(self, kitchen_id):
         response = {}
@@ -443,6 +647,7 @@ api.add_resource(RegisterKitchen, '/api/v1/kitchens/register')
 api.add_resource(Meals, '/api/v1/meals/<string:kitchen_id>')
 api.add_resource(OrderReport, '/api/v1/orders/report/<string:kitchen_id>')
 api.add_resource(Kitchens, '/api/v1/kitchens')
+api.add_resource(Kitchen, '/api/v1/kitchen/<string:kitchen_id>')
 
 if __name__ == '__main__':
     app.run(host='localhost', port='5000')
