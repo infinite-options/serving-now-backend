@@ -209,7 +209,14 @@ class RegisterKitchen(Resource):
           or data.get('zipcode') == None \
           or data.get('phone_number') == None \
           or data.get('close_time') == None \
-          or data.get('open_time') == None:
+          or data.get('open_time') == None \
+          or data.get('delivery_open_time') == None \
+          or data.get('delivery_close_time') == None \
+          or data.get('pickup') == None \
+          or data.get('delivery') == None \
+          or data.get('reusable') == None \
+          or data.get('disposable') == None \
+          or data.get('can_cancel') == None:
             raise BadRequest('Request failed. Please provide all \
                               required information.')
 
@@ -231,6 +238,10 @@ class RegisterKitchen(Resource):
 
         kitchen_id = uuid.uuid4().hex
 
+        can_cancel = False
+        if data['can_cancel'] == 'true':
+          can_cancel = True
+
         try:
             add_kitchen = db.put_item(TableName='kitchens',
                 Item={'kitchen_id': {'S': kitchen_id},
@@ -249,7 +260,14 @@ class RegisterKitchen(Resource):
                       'open_time': {'S': str(data['open_time'])},
                       'close_time': {'S': str(data['close_time'])},
                       'isOpen': {'BOOL': False},
-                      'email': {'S': data['email']}
+                      'email': {'S': data['email']},
+                      'delivery_open_time': { 'S': data['delivery_open_time' ]},
+                      'delivery_close_time': { 'S': data['delivery_close_time' ]},
+                      'pickup': { 'S': data['pickup']},
+                      'delivery': { 'S': data['delivery']},
+                      'reusable': { 'S': data['reusable']},
+                      'disposable': { 'S': data['disposable']},
+                      'can_cancel': { 'BOOL': can_cancel }
                 }
             )
 
