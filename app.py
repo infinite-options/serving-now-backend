@@ -453,7 +453,9 @@ class OrderReport(Resource):
 api.add_resource(MealOrders, '/api/v1/orders')
 # api.add_resource(TodaysMealPhoto, '/api/v1/meal/image/upload')
 api.add_resource(RegisterKitchen, '/api/v1/kitchens/register')
+#api.add_resource(Meals, '/api/v1/meals/<string:meal_id>')
 api.add_resource(Meals, '/api/v1/meals/<string:kitchen_id>')
+#api.add_resource(Meals, '/api/v1/meals/delete/<string:meal_id>')
 api.add_resource(OrderReport, '/api/v1/orders/report/<string:kitchen_id>')
 api.add_resource(Kitchens, '/api/v1/kitchens')
 
