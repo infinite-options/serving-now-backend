@@ -50,7 +50,7 @@ ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg'])
 
 def helper_upload_meal_img(file, bucket, key):
     if file and allowed_file(file.filename):
-        filename = 'https://s3-us-west-2.amazonaws.com/' \
+        filename = 'https://s3-us-west-1.amazonaws.com/' \
                    + str(bucket) + '/' + str(key)
         upload_file = s3.put_object(
                             Bucket=bucket,
