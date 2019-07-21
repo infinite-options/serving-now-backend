@@ -66,7 +66,7 @@ def allowed_file(filename):
     """Checks if the file is allowed to upload"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# ===========================================================  
+# ===========================================================
 
 
 def kitchenExists(kitchen_id):
@@ -144,7 +144,7 @@ class MealOrders(Resource):
                       'kitchen_id': {'S': str(data['kitchen_id'])}
                 }
             )
-            
+
             kitchen = db.get_item(TableName='kitchens',
                 Key={'kitchen_id': {'S': data['kitchen_id']}},
                 ProjectionExpression='#kitchen_name, address, city, \
@@ -263,10 +263,10 @@ class RegisterKitchen(Resource):
                       'email': {'S': data['email']},
                       'delivery_open_time': { 'S': data['delivery_open_time' ]},
                       'delivery_close_time': { 'S': data['delivery_close_time' ]},
-                      'pickup': { 'S': data['pickup']},
-                      'delivery': { 'S': data['delivery']},
-                      'reusable': { 'S': data['reusable']},
-                      'disposable': { 'S': data['disposable']},
+                      'pickup': { 'BOOL': data['pickup']},
+                      'delivery': { 'BOOL': data['delivery']},
+                      'reusable': { 'BOOL': data['reusable']},
+                      'disposable': { 'BOOL': data['disposable']},
                       'can_cancel': { 'BOOL': can_cancel }
                 }
             )
@@ -289,7 +289,7 @@ def formateTime(time):
         return '{}:{} PM'.format((int(hours) - 12), mins)
     else:
         return '{}:{} AM'.format(hours, mins)
-            
+
 class Kitchens(Resource):
     def get(self):
         """Returns all kitchens"""
@@ -309,7 +309,7 @@ class Kitchens(Resource):
             for kitchen in kitchens['Items']:
                 kitchen['open_time']['S'] = formateTime(kitchen['open_time']['S'])
                 kitchen['close_time']['S'] = formateTime(kitchen['close_time']['S'])
-                
+
                 if kitchen['isOpen']['BOOL'] == True:
                     result.insert(0, kitchen)
                 else:
@@ -530,7 +530,7 @@ class Meals(Resource):
             raise BadRequest('kitchen does not exist')
 
         todays_date = datetime.now(tz=timezone('US/Pacific')).strftime("%Y-%m-%d")
-        
+
         try:
             meals = db.scan(TableName='meals',
                 FilterExpression='kitchen_id = :value and (contains(created_at, :x1))',
@@ -575,11 +575,18 @@ class OrderReport(Resource):
         k_id = kitchen_id
 
         try:
+            # orders = db.scan(TableName='meal_orders',
+            #     FilterExpression='kitchen_id = :value AND (contains(created_at, :x1))',
+            #     ExpressionAttributeValues={
+            #         ':value': {'S': k_id},
+            #         ':x1': {'S': todays_date}
+            #     }
+            # )
+
             orders = db.scan(TableName='meal_orders',
-                FilterExpression='kitchen_id = :value AND (contains(created_at, :x1))',
+                FilterExpression='kitchen_id = :value',
                 ExpressionAttributeValues={
-                    ':value': {'S': k_id},
-                    ':x1': {'S': todays_date}
+                    ':value': {'S': k_id}
                 }
             )
 
