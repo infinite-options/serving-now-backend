@@ -37,7 +37,7 @@ mail = Mail(app)
 api = Api(app)
 
 
-db = boto3.client('dynamodb')
+db = boto3.client('dynamodb', region_name="us-west-1")
 s3 = boto3.client('s3')
 
 
@@ -365,7 +365,7 @@ class Kitchen(Resource):
           'email'
         ]
         KITCHEN_FIELD_KEYS = [
-          'name',
+          'kitchen_name',
           'description',
           'open_time',
           'close_time',
@@ -523,6 +523,8 @@ class Meals(Resource):
     def get(self, kitchen_id):
         response = {}
 
+        print(kitchen_id)
+
         kitchenFound = kitchenExists(kitchen_id)
 
         # raise exception if the kitchen does not exists
@@ -532,13 +534,23 @@ class Meals(Resource):
         todays_date = datetime.now(tz=timezone('US/Pacific')).strftime("%Y-%m-%d")
 
         try:
+            # meals = db.scan(TableName='meals',
+            #     FilterExpression='kitchen_id = :value and (contains(created_at, :x1))',
+            #     ExpressionAttributeValues={
+            #         ':value': {'S': kitchen_id},
+            #         ':x1': {'S': todays_date}
+            #     }
+            # )
+
+            print("kitchen meal scan start")
             meals = db.scan(TableName='meals',
-                FilterExpression='kitchen_id = :value and (contains(created_at, :x1))',
+                FilterExpression='kitchen_id = :value',
                 ExpressionAttributeValues={
-                    ':value': {'S': kitchen_id},
-                    ':x1': {'S': todays_date}
+                    ':value': {'S': kitchen_id}
                 }
             )
+            print("kitchen meal scan finish")
+
 
             for meal in meals['Items']:
                 description = ''
@@ -552,7 +564,7 @@ class Meals(Resource):
 
                 del meal['description']
                 meal['description'] = {}
-                meal['description']['S'] = description
+                meal['description']['S'] = description[:-2]
 
             response['message'] = 'Request successful!'
             response['result'] = meals['Items']
@@ -575,18 +587,11 @@ class OrderReport(Resource):
         k_id = kitchen_id
 
         try:
-            # orders = db.scan(TableName='meal_orders',
-            #     FilterExpression='kitchen_id = :value AND (contains(created_at, :x1))',
-            #     ExpressionAttributeValues={
-            #         ':value': {'S': k_id},
-            #         ':x1': {'S': todays_date}
-            #     }
-            # )
-
             orders = db.scan(TableName='meal_orders',
-                FilterExpression='kitchen_id = :value',
+                FilterExpression='kitchen_id = :value AND (contains(created_at, :x1))',
                 ExpressionAttributeValues={
-                    ':value': {'S': k_id}
+                    ':value': {'S': k_id},
+                    ':x1': {'S': todays_date}
                 }
             )
 
