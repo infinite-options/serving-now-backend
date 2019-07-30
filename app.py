@@ -196,16 +196,16 @@ class RegisterKitchen(Resource):
         data = request.get_json(force=True)
         created_at = datetime.now(tz=timezone('US/Pacific')).strftime("%Y-%m-%dT%H:%M:%S")
 
-        if data.get('name') == None \
+        if data.get('kitchen_name') == None \
           or data.get('description') == None \
           or data.get('email') == None \
           or data.get('username') == None \
           or data.get('password') == None \
           or data.get('first_name') == None \
           or data.get('last_name') == None \
-          or data.get('address') == None \
+          or data.get('street') == None \
           or data.get('city') == None \
-          or data.get('state') == None \
+          or data.get('st') == None \
           or data.get('zipcode') == None \
           or data.get('phone_number') == None \
           or data.get('close_time') == None \
@@ -246,15 +246,15 @@ class RegisterKitchen(Resource):
             add_kitchen = db.put_item(TableName='kitchens',
                 Item={'kitchen_id': {'S': kitchen_id},
                       'created_at': {'S': created_at},
-                      'name': {'S': data['name']},
+                      'kitchen_name': {'S': data['kitchen_name']},
                       'description': {'S': data['description']},
                       'username': {'S': data['username']},
                       'password': {'S': generate_password_hash(data['password'])},
                       'first_name': {'S': data['first_name']},
                       'last_name': {'S': data['last_name']},
-                      'address': {'S': data['address']},
+                      'street': {'S': data['street']},
                       'city': {'S': data['city']},
-                      'state': {'S': data['state']},
+                      'st': {'S': data['st']},
                       'zipcode': {'N': str(data['zipcode'])},
                       'phone_number': {'S': str(data['phone_number'])},
                       'open_time': {'S': str(data['open_time'])},
@@ -267,7 +267,7 @@ class RegisterKitchen(Resource):
                       'delivery': { 'BOOL': data['delivery']},
                       'reusable': { 'BOOL': data['reusable']},
                       'disposable': { 'BOOL': data['disposable']},
-                      'can_cancel': { 'BOOL': can_cancel }
+                      'can_cancel': { 'BOOL': can_cancel}
                 }
             )
 
@@ -300,7 +300,7 @@ class Kitchens(Resource):
                 ProjectionExpression='#kitchen_name, kitchen_id, \
                     close_time, description, open_time, isOpen',
                 ExpressionAttributeNames={
-                    '#kitchen_name': 'name'
+                    '#kitchen_name': 'kitchen_name'
                 }
             )
 
@@ -357,9 +357,9 @@ class Kitchen(Resource):
         PERSONAL_FIELD_KEYS = [
           'first_name',
           'last_name',
-          'address',
+          'street',
           'city',
-          'state',
+          'st',
           'zipcode',
           'phone_number',
           'email'
