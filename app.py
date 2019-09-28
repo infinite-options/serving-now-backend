@@ -24,10 +24,8 @@ from werkzeug.security import generate_password_hash, \
 app = Flask(__name__, template_folder='assets')
 cors = CORS(app, resources={r'/api/*': {'origins': '*'}})
 
-# app.config['MAIL_USERNAME'] = os.environ.get('EMAIL')
-# app.config['MAIL_PASSWORD'] = os.environ.get('PASSWORD')
-app.config['MAIL_USERNAME'] = "infiniteoptions.meals@gmail.com"
-app.config['MAIL_PASSWORD'] = "annApurna"
+app.config['MAIL_USERNAME'] = os.environ.get('EMAIL')
+app.config['MAIL_PASSWORD'] = os.environ.get('PASSWORD')
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 465
 app.config['MAIL_USE_TLS'] = False
