@@ -26,7 +26,7 @@
 		<div class="row">
 			<div class="col">
 			</div>
-			
+
 			<div class="col-10">
 				<ul class="nav justify-content-center">
 					<li class="nav-item">
@@ -35,33 +35,33 @@
 				</ul>
 
 				<br>
-				
+
 				<h2>Hello, {{ name }} </h2>
-				
+
 				<div class="card">
 					<div class="card-body">
-						Your order from <strong>{{ kitchen.name.S }}</strong> is being prepared. It should be available for pickup after <strong>{% if kitchen.pickup_time %} kitchen.pickup_time.S {% else %} 5:30pm {% endif %}</strong>
+						Your order from <strong>{{ kitchen.kitchen_name.S }}</strong> is being prepared. It should be available for pickup after <strong>{% if kitchen.pickup_time %} kitchen.pickup_time.S {% else %} 5:30pm {% endif %}</strong>
 					</div>
 				</div>
-				
+
 				<br>
-				
+
 				<h4>Your Order</h4>
-				
+
 				<div class="card">
 					<div class="card-body">
 						 <div class="row">
 							<div class="col-sm">
 								<strong>Item</strong><br><br>
 								{% for item in order_items %}
-									{{ item.name }}<br>
+									{{ item.meal_name.S }}<br>
 								{% endfor %}
 								<strong>Total</strong>
 							</div>
 							<div class="col-sm">
 								<strong>Quantity</strong><br><br>
 								{% for item in order_items %}
-									{{ item.qty }}<br>
+									{{ item.qty.N }}<br>
 								{% endfor %}
 								<strong>(w/ Tax)</strong>
 							</div>
@@ -76,17 +76,17 @@
 					</div>
 				</div>
 				<br>
-			
+
 				<h4>Pickup Information</h4>
 				<div class="card">
 					<div class="card-body">
-						Pickup for {{ name }} at {{ kitchen.name.S }}
+						Pickup for {{ name }} at {{ kitchen.kitchen_name.S }}
 							<div class="card-body">
-								{{ kitchen.address.S }}<br>
-								{{ kitchen.city.S }}, {{ kitchen.state.S }}<br>
+								{{ kitchen.street.S }}<br>
+								{{ kitchen.city.S }}, {{ kitchen.st.S }}<br>
 								{{ kitchen.phone_number.S }}
 							</div>
-						Thank you for ordering with {{ kitchen.name.S }}. See you soon!
+						Thank you for ordering with {{ kitchen.kitchen_name.S }}. See you soon!
 					</div>
 				</div>
 			</div>
