@@ -24,8 +24,10 @@ from werkzeug.security import generate_password_hash, \
 app = Flask(__name__, template_folder='assets')
 cors = CORS(app, resources={r'/api/*': {'origins': '*'}})
 
-app.config['MAIL_USERNAME'] = os.environ.get('EMAIL')
-app.config['MAIL_PASSWORD'] = os.environ.get('PASSWORD')
+# app.config['MAIL_USERNAME'] = os.environ.get('EMAIL')
+# app.config['MAIL_PASSWORD'] = os.environ.get('PASSWORD')
+app.config['MAIL_USERNAME'] = "infiniteoptions.meals@gmail.com"
+app.config['MAIL_PASSWORD'] = "annApurna"
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 465
 app.config['MAIL_USE_TLS'] = False
@@ -127,19 +129,21 @@ class MealOrders(Resource):
         order_details = []
 
         for i in data['ordered_items']:
+            product = db.scan(TableName='meals',
+                FilterExpression='meal_id = :val',
+                ProjectionExpression='meal_name, price',
+                ExpressionAttributeValues={
+                    ':val': {'S': i['meal_id']}
+                })
             item = {}
             item['meal_id'] = {}
             item['meal_id']['S'] = i['meal_id']
             item['meal_name'] = {}
-            item['meal_name']['S'] = db.scan(TableName='meals',
-                FilterExpression='meal_id = :val',
-                ProjectionExpression='meal_name',
-                ExpressionAttributeValues={
-                    ':val': {'S': i['meal_id']}
-                }
-            )['Items'][0]['meal_name']['S']
+            item['meal_name']['S'] = product['Items'][0]['meal_name']['S']
             item['qty'] = {}
             item['qty']['N'] = str(i['qty'])
+            item['price'] = {}
+            item['price']['N'] = product['Items'][0]['price']['S']
             order_details.append(item)
 
         order_items = [{"M": x} for x in order_details]
@@ -167,18 +171,29 @@ class MealOrders(Resource):
             kitchen = db.get_item(TableName='kitchens',
                 Key={'kitchen_id': {'S': data['kitchen_id']}},
                 ProjectionExpression='kitchen_name, street, city, \
-                    st, phone_number, pickup_time'
+                    st, phone_number, pickup_time, first_name, kitchen_id'
             )
 
-            msg = Message(subject='Order Confirmation',
+            customerMsg = Message(subject='Order Confirmation',
                           sender=app.config['MAIL_USERNAME'],
                           html=render_template('emailTemplate.html',
                           order_items=order_details,
                           kitchen=kitchen['Item'],
-                          totalAmount=totalAmount, name=data['name']),
+                          totalAmount=totalAmount,
+                          name=data['name']),
                           recipients=[data['email']])
 
-            mail.send(msg)
+            BusinessMsg = Message(subject='Order Confirmation',
+                          sender=app.config['MAIL_USERNAME'],
+                          html=render_template('businessEmailTemplate.html',
+                          order_items=order_details,
+                          kitchen=kitchen['Item'],
+                          totalAmount=totalAmount,
+                          customer=data['name']),
+                          recipients=[data['email']])
+
+            mail.send(customerMsg)
+            mail.send(BusinessMsg)
 
             response['message'] = 'Request successful'
             return response, 200
