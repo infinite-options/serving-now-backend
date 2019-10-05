@@ -325,11 +325,10 @@ class Kitchens(Resource):
 
         try:
             kitchens = db.scan(TableName='kitchens',
-                ProjectionExpression='#kitchen_name, #name, kitchen_id, \
-                    close_time, description, open_time, isOpen',
+                ProjectionExpression='#kitchen_name, kitchen_id, \
+                    close_time, description, open_time, isOpen, accepting_hours',
                 ExpressionAttributeNames={
-                    '#kitchen_name': 'kitchen_name',
-                    '#name': 'name'
+                    '#kitchen_name': 'kitchen_name'
                 }
             )
 
