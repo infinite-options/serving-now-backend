@@ -37,7 +37,7 @@ mail = Mail(app)
 api = Api(app)
 
 
-db = boto3.client('dynamodb')
+db = boto3.client('dynamodb', region_name="us-west-1")
 s3 = boto3.client('s3')
 
 
@@ -90,20 +90,30 @@ class MealOrders(Resource):
         data = request.get_json(force=True)
         created_at = datetime.now(tz=timezone('US/Pacific')).strftime("%Y-%m-%dT%H:%M:%S")
 
-        if data.get('email') == None \
-          or data.get('name') == None \
-          or data.get('street') == None \
-          or data.get('zipCode') == None \
-          or data.get('city') == None \
-          or data.get('state') == None \
-          or data.get('totalAmount') == None \
-          or data.get('paid') == None \
-          or data.get('paymentType') == None \
-          or data.get('ordered_items') == None \
-          or data.get('phone') == None \
-          or data.get('kitchen_id') == None:
-            raise BadRequest('Request failed. Please provide all \
-                              required information.')
+        if data.get('email') == None:
+            raise BadRequest('Request failed. Please provide email')
+        if data.get('name') == None:
+            raise BadRequest('Request failed. Please provide name')
+        if data.get('street') == None:
+            raise BadRequest('Request failed. Please provide street')
+        if data.get('zipCode') == None:
+            raise BadRequest('Request failed. Please provide zipCode')
+        if data.get('city') == None:
+            raise BadRequest('Request failed. Please provide city')
+        if data.get('state') == None:
+            raise BadRequest('Request failed. Please provide state')
+        if data.get('totalAmount') == None:
+            raise BadRequest('Request failed. Please provide totalAmount')
+        if data.get('paid') == None:
+            raise BadRequest('Request failed. Please provide paid')
+        if data.get('paymentType') == None:
+            raise BadRequest('Request failed. Please provide paymentType')
+        if data.get('ordered_items') == None:
+            raise BadRequest('Request failed. Please provide ordered_items')
+        if data.get('phone') == None:
+            raise BadRequest('Request failed. Please provide phone')
+        if data.get('kitchen_id') == None:
+            raise BadRequest('Request failed. Please provide kitchen_id')
 
         kitchenFound = kitchenExists(data['kitchen_id'])
 
@@ -111,17 +121,27 @@ class MealOrders(Resource):
         if not kitchenFound:
             raise BadRequest('kitchen does not exist')
 
-        order_id = uuid.uuid4().hex
+        order_id = data['order_id']
         totalAmount = data['totalAmount']
 
         order_details = []
 
         for i in data['ordered_items']:
+            product = db.scan(TableName='meals',
+                FilterExpression='meal_id = :val',
+                ProjectionExpression='meal_name, price',
+                ExpressionAttributeValues={
+                    ':val': {'S': i['meal_id']}
+                })
             item = {}
             item['meal_id'] = {}
             item['meal_id']['S'] = i['meal_id']
+            item['meal_name'] = {}
+            item['meal_name']['S'] = product['Items'][0]['meal_name']['S']
             item['qty'] = {}
             item['qty']['N'] = str(i['qty'])
+            item['price'] = {}
+            item['price']['N'] = product['Items'][0]['price']['S']
             order_details.append(item)
 
         order_items = [{"M": x} for x in order_details]
@@ -138,6 +158,7 @@ class MealOrders(Resource):
                       'state': {'S': data['state']},
                       'totalAmount': {'N': str(totalAmount)},
                       'paid': {'BOOL': data['paid']},
+                      'status': {'S': 'open'},
                       'paymentType': {'S': data['paymentType']},
                       'order_items':{'L': order_items},
                       'phone': {'S': str(data['phone'])},
@@ -147,28 +168,35 @@ class MealOrders(Resource):
 
             kitchen = db.get_item(TableName='kitchens',
                 Key={'kitchen_id': {'S': data['kitchen_id']}},
-                ProjectionExpression='#kitchen_name, address, city, \
-                    #address_state, phone_number, pickup_time',
-                ExpressionAttributeNames={
-                    '#kitchen_name': 'name',
-                    '#address_state': 'state'
-                }
+                ProjectionExpression='kitchen_name, street, city, \
+                    st, phone_number, pickup_time, first_name, kitchen_id'
             )
 
-            msg = Message(subject='Order Confirmation',
-                          sender=os.environ.get('EMAIL'),
+            customerMsg = Message(subject='Order Confirmation',
+                          sender=app.config['MAIL_USERNAME'],
                           html=render_template('emailTemplate.html',
-                              order_items=data['ordered_items'],
-                              kitchen=kitchen['Item'],
-                              totalAmount=totalAmount, name=data['name']),
+                          order_items=order_details,
+                          kitchen=kitchen['Item'],
+                          totalAmount=totalAmount,
+                          name=data['name']),
                           recipients=[data['email']])
 
-            mail.send(msg)
+            BusinessMsg = Message(subject='Order Confirmation',
+                          sender=app.config['MAIL_USERNAME'],
+                          html=render_template('businessEmailTemplate.html',
+                          order_items=order_details,
+                          kitchen=kitchen['Item'],
+                          totalAmount=totalAmount,
+                          customer=data['name']),
+                          recipients=[data['email']])
+
+            mail.send(customerMsg)
+            mail.send(BusinessMsg)
 
             response['message'] = 'Request successful'
             return response, 200
-        except:
-            raise BadRequest('Request failed. Please try again later.')
+        except Exception as e:
+            raise BadRequest('Request failed: ' + str(e))
 
     def get(self):
         """RETURNS ALL ORDERS PLACED TODAY"""
@@ -196,16 +224,16 @@ class RegisterKitchen(Resource):
         data = request.get_json(force=True)
         created_at = datetime.now(tz=timezone('US/Pacific')).strftime("%Y-%m-%dT%H:%M:%S")
 
-        if data.get('name') == None \
+        if data.get('kitchen_name') == None \
           or data.get('description') == None \
           or data.get('email') == None \
           or data.get('username') == None \
           or data.get('password') == None \
           or data.get('first_name') == None \
           or data.get('last_name') == None \
-          or data.get('address') == None \
+          or data.get('street') == None \
           or data.get('city') == None \
-          or data.get('state') == None \
+          or data.get('st') == None \
           or data.get('zipcode') == None \
           or data.get('phone_number') == None \
           or data.get('close_time') == None \
@@ -246,15 +274,15 @@ class RegisterKitchen(Resource):
             add_kitchen = db.put_item(TableName='kitchens',
                 Item={'kitchen_id': {'S': kitchen_id},
                       'created_at': {'S': created_at},
-                      'name': {'S': data['name']},
+                      'kitchen_name': {'S': data['kitchen_name']},
                       'description': {'S': data['description']},
                       'username': {'S': data['username']},
                       'password': {'S': generate_password_hash(data['password'])},
                       'first_name': {'S': data['first_name']},
                       'last_name': {'S': data['last_name']},
-                      'address': {'S': data['address']},
+                      'street': {'S': data['street']},
                       'city': {'S': data['city']},
-                      'state': {'S': data['state']},
+                      'st': {'S': data['st']},
                       'zipcode': {'N': str(data['zipcode'])},
                       'phone_number': {'S': str(data['phone_number'])},
                       'open_time': {'S': str(data['open_time'])},
@@ -267,7 +295,7 @@ class RegisterKitchen(Resource):
                       'delivery': { 'BOOL': data['delivery']},
                       'reusable': { 'BOOL': data['reusable']},
                       'disposable': { 'BOOL': data['disposable']},
-                      'can_cancel': { 'BOOL': can_cancel }
+                      'can_cancel': { 'BOOL': can_cancel}
                 }
             )
 
@@ -354,15 +382,15 @@ class Kitchen(Resource):
         PERSONAL_FIELD_KEYS = [
           'first_name',
           'last_name',
-          'address',
+          'street',
           'city',
-          'state',
+          'st',
           'zipcode',
           'phone_number',
           'email'
         ]
         KITCHEN_FIELD_KEYS = [
-          'name',
+          'kitchen_name',
           'description',
           'open_time',
           'close_time',
@@ -403,7 +431,7 @@ class Kitchen(Resource):
                 try:
                     db.update_item(TableName='kitchens',
                         Key={'kitchen_id': {'S': str(kitchen_id)}},
-                        UpdateExpression='SET first_name = :fn, last_name = :ln, address = :a, city = :c, #state = :s, zipcode = :z, phone_number = :pn, email = :e',
+                        UpdateExpression='SET first_name = :fn, last_name = :ln, street = :a, city = :c, #state = :s, zipcode = :z, phone_number = :pn, email = :e',
                         ExpressionAttributeNames={
                           '#state': 'state'
                         },
@@ -520,6 +548,8 @@ class Meals(Resource):
     def get(self, kitchen_id):
         response = {}
 
+        print(kitchen_id)
+
         kitchenFound = kitchenExists(kitchen_id)
 
         # raise exception if the kitchen does not exists
@@ -529,13 +559,23 @@ class Meals(Resource):
         todays_date = datetime.now(tz=timezone('US/Pacific')).strftime("%Y-%m-%d")
 
         try:
+            # meals = db.scan(TableName='meals',
+            #     FilterExpression='kitchen_id = :value and (contains(created_at, :x1))',
+            #     ExpressionAttributeValues={
+            #         ':value': {'S': kitchen_id},
+            #         ':x1': {'S': todays_date}
+            #     }
+            # )
+
+            print("kitchen meal scan start")
             meals = db.scan(TableName='meals',
-                FilterExpression='kitchen_id = :value and (contains(created_at, :x1))',
+                FilterExpression='kitchen_id = :value',
                 ExpressionAttributeValues={
-                    ':value': {'S': kitchen_id},
-                    ':x1': {'S': todays_date}
+                    ':value': {'S': kitchen_id}
                 }
             )
+            print("kitchen meal scan finish")
+
 
             for meal in meals['Items']:
                 description = ''
@@ -549,7 +589,7 @@ class Meals(Resource):
 
                 del meal['description']
                 meal['description'] = {}
-                meal['description']['S'] = description
+                meal['description']['S'] = description[:-2]
 
             response['message'] = 'Request successful!'
             response['result'] = meals['Items']
@@ -572,18 +612,11 @@ class OrderReport(Resource):
         k_id = kitchen_id
 
         try:
-            # orders = db.scan(TableName='meal_orders',
-            #     FilterExpression='kitchen_id = :value AND (contains(created_at, :x1))',
-            #     ExpressionAttributeValues={
-            #         ':value': {'S': k_id},
-            #         ':x1': {'S': todays_date}
-            #     }
-            # )
-
             orders = db.scan(TableName='meal_orders',
-                FilterExpression='kitchen_id = :value',
+                FilterExpression='kitchen_id = :value AND (contains(created_at, :x1))',
                 ExpressionAttributeValues={
-                    ':value': {'S': k_id}
+                    ':value': {'S': k_id},
+                    ':x1': {'S': todays_date}
                 }
             )
 
