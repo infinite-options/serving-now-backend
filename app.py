@@ -336,7 +336,7 @@ class Kitchens(Resource):
             kitchens = db.scan(TableName='kitchens',
                 ProjectionExpression='kitchen_name, kitchen_id, \
                     close_time, description, open_time, isOpen, \
-                    accepting_hours, is_accepting_24hr',
+                    accepting_hours, is_accepting_24hr, delivery_hours',
             )
 
             result = []
