@@ -9,6 +9,7 @@ import os
 import uuid
 import boto3
 import json
+import pymysql
 from datetime import datetime
 from pytz import timezone
 
@@ -80,6 +81,24 @@ def kitchenExists(kitchen_id):
 
     return not kitchen.get('Items') == []
 
+def getRdsConn():
+    RDS_HOST = 'pm-mysqldb.cxjnrciilyjq.us-west-1.rds.amazonaws.com'
+    RDS_PORT = 3306
+    RDS_USER = 'admin'
+    RDS_DB = 'pricing'
+    RDS_PW = ':)'
+    print("Trying to connect to RDS...")
+    try:
+        conn = pymysql.connect( RDS_HOST,
+                                user=RDS_USER,
+                                port=RDS_PORT,
+                                passwd=RDS_PW,
+                                db=RDS_DB)
+        cur = conn.cursor()
+        print("Successfully connected to RDS.")
+        return [conn, cur]
+    except:
+        raise Exception("RDS Connection failed.")
 
 class MealOrders(Resource):
     def post(self):
@@ -636,6 +655,45 @@ class OrderReport(Resource):
         except:
             raise BadRequest('Request failed. please try again later.')
 
+class LatestPricing(Resource):
+    def get(self):
+        response = {}
+        try:
+            # Connect to RDS
+            rds = getRdsConn()
+            conn = rds[0]
+            cur = rds[1]
+
+            # Run query
+            query = """ SELECT item, price, unit, store, zipcode, max(price_date) as \'latestDate\'
+                        FROM groceries
+                        GROUP BY item, store, zipcode;"""
+            cur.execute(query)
+            queriedData = cur.fetchall()
+
+            # Write queried data to json
+            items = []
+            for row in queriedData:
+                rowDict = {}
+                rowDictKeys = ('item', 'price', 'unit', 'store', 'zipcode', 'latestDate')
+                
+                for element in enumerate(row):
+                    keyToAppend = rowDictKeys[element[0]]
+                    valueToAppend = element[1]
+                    if keyToAppend == 'price':
+                        valueToAppend = float(valueToAppend)
+                    rowDict[keyToAppend] = valueToAppend
+                items.append(rowDict)
+
+            response['message'] = 'Request successful.'
+            response['result'] = items
+
+            # Close RDS connection
+            cur.close()
+            conn.close()
+            return response, 200
+        except:
+            raise BadRequest('Request failed, please try again later.')
 
 api.add_resource(MealOrders, '/api/v1/orders')
 # api.add_resource(TodaysMealPhoto, '/api/v1/meal/image/upload')
@@ -644,6 +702,7 @@ api.add_resource(Meals, '/api/v1/meals/<string:kitchen_id>')
 api.add_resource(OrderReport, '/api/v1/orders/report/<string:kitchen_id>')
 api.add_resource(Kitchens, '/api/v1/kitchens')
 api.add_resource(Kitchen, '/api/v1/kitchen/<string:kitchen_id>')
+api.add_resource(LatestPricing, '/api/v1/latestpricing')
 
 if __name__ == '__main__':
     app.run(host='localhost', port='5000')
